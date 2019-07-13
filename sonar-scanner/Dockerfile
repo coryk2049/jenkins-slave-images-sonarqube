@@ -1,27 +1,38 @@
-# Copyright © 2018 Booz Allen Hamilton. All Rights Reserved.
-# This software package is licensed under the Booz Allen Public License. The license can be found in the License file or at http://boozallen.github.io/licenses/bapl
+FROM openshift/jenkins-slave-base-centos7
 
-FROM openjdk:8-alpine
+USER root
 
-ENV SONAR_RUNNER_HOME=/root/sonar-scanner-3.0.3.778-linux
-ENV PATH $PATH:/root/sonar-scanner-3.0.3.778-linux/bin
+ENV SONARQUBE_SCANNER_VERSION=3.2.0.1227 \
+    PATH=$PATH:/sonarqube-scanner/bin \
+    HOME=/home/jenkins \
+    JAVA_VERSION=8u191 \
+    BUILD_VERSION=b12
 
-WORKDIR /root
+# Install Java without interaction
+#RUN yum install -y centos-release-scl-rh && \
+#    INSTALL_PKGS="wget" && \
+#    yum install -y --setopt=tsflags=nodocs install $INSTALL_PKGS && \
+#    rpm -V $INSTALL_PKGS && \
+#    wget --no-cookies --no-check-certificate --header "Cookie: oraclelicense=accept-securebackup-cookie" "http://download.oracle.com/otn-pub/java/jdk/$JAVA_VERSION-$BUILD_VERSION/2787e4a523244c269598db4e85c51e0c/jdk-$JAVA_VERSION-linux-x64.rpm" -O /tmp/jdk-8-linux-x64.rpm && \
+#    yum -y install /tmp/jdk-8-linux-x64.rpm && \
+#    yum clean all
 
-RUN apk add --no-cache curl grep sed unzip && \
-    curl --insecure -o ./sonarscanner.zip -L https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-cli-3.0.3.778-linux.zip && \
-    unzip sonarscanner.zip && \
-    rm sonarscanner.zip
+RUN yum install -y java-1.8.0-openjdk java-1.8.0-openjdk-devel && \
+    yum clean all
 
-# RUN chmod 777 /root/sonar-scanner-3.0.3.778-linux/bin/sonar-scanner
+ENV JAVA_HOME /usr/lib/jvm/java-1.8.0-openjdk/
 
-COPY sonar-runner.properties ./sonar-scanner-3.0.3.778-linux/conf/sonar-scanner.properties
+WORKDIR /
 
-#   ensure Sonar uses the provided Java for must instead of a borked glibc one
-RUN sed -i 's/use_embedded_jre=true/use_embedded_jre=false/g' /root/sonar-scanner-3.0.3.778-linux/bin/sonar-scanner
+# Install SonarQube Scanner
+RUN set -x && \
+    wget https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-cli-$SONARQUBE_SCANNER_VERSION-linux.zip && \
+    unzip sonar-scanner-cli-$SONARQUBE_SCANNER_VERSION-linux.zip && \
+    rm sonar-scanner-cli-$SONARQUBE_SCANNER_VERSION-linux.zip && \
+    mv /sonar-scanner-$SONARQUBE_SCANNER_VERSION-linux /sonarqube-scanner
 
-# Use bash if you want to run the environment from inside the shell, otherwise use the command that actually runs the underlying stuff
-#CMD /bin/bash
-CMD /bin/sh 
-#CMD sonar-scanner
+RUN chown -R 1029:0 /usr/local/bin && \
+    chown -R 1029:0 $HOME && \
+    chmod -R g+rw $HOME
 
+USER 1029
